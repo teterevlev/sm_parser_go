@@ -2,90 +2,111 @@ package fetcher
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
-	"strings"
+	"net/http/httptest"
 	"testing"
 )
 
-type MockHttpClient struct {
-	RespBody io.Reader
-	Err      error
-}
-
-func (m *MockHttpClient) Do(req *http.Request) (*http.Response, error) {
-	if m.Err != nil {
-		return nil, m.Err
-	}
-
-	if m.RespBody == nil {
-		m.RespBody = strings.NewReader("")
-	}
-
-	return &http.Response{
-		StatusCode: http.StatusOK,
-		Body:       io.NopCloser(m.RespBody),
-	}, nil
-}
-
-type BadReader struct{}
-
-func (b *BadReader) Read(p []byte) (n int, err error) {
-	return 0, errors.New("Read err")
-}
-
 func TestFetchHTML_Success(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "<html><body>Hello</body></html>")
+	}
+	ts := httptest.NewServer(http.HandlerFunc(handler))
+	defer ts.Close()
+
 	ctx := context.Background()
 	expectedHTML := "<html><body>Hello</body></html>"
-	mockClient := &MockHttpClient{
-		RespBody: strings.NewReader(expectedHTML),
-	}
+	mockClient := &http.Client{}
 
-	html, err := FetchHTML(ctx, mockClient, "https://www.youtube.com")
+	html, err := FetchHTML(ctx, mockClient, ts.URL)
 	if err != nil {
-		t.Fatalf("Err while executed FetchHTML: %v", err)
+		t.Fatalf("Error during FetchHTML execution: %v", err)
 	}
 
 	if html != expectedHTML {
-		t.Errorf("Expected %q, received %q", expectedHTML, html)
+		t.Errorf("Expected %q, got %q", expectedHTML, html)
 	}
 }
 
-func TestFetchHTML_RequestError(t *testing.T) {
-	ctx := context.Background()
-	mockClient := &MockHttpClient{
-		Err: errors.New("Request err"),
+func TestFetchHTML_RequestExecutionError(t *testing.T) {
+	client := &http.Client{
+		Transport: &http.Transport{
+			// Use a transport that simulates a network failure
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				return nil, fmt.Errorf("simulated network error")
+			},
+		},
 	}
 
-	_, err := FetchHTML(ctx, mockClient, "https://www.youtube.com")
+	_, err := FetchHTML(context.Background(), client, "http://example.com")
 
 	if err == nil {
-		t.Fatalf("Request err expected but not happened")
+		t.Fatalf("Expected request execution error, but none occurred")
+	}
+
+	if !containsErrorMessage(err, "request execution err") {
+		t.Errorf("Expected 'request execution err', but got: %v", err)
 	}
 }
 
 func TestFetchHTML_RequestCreationError(t *testing.T) {
-	mockClient := &MockHttpClient{
-		RespBody: strings.NewReader("<html></html>"),
-	}
+	ctx := context.Background()
 
-	_, err := FetchHTML(context.Background(), mockClient, "%invalid-url")
+	_, err := FetchHTML(ctx, &http.Client{}, "%invalid-url")
 
 	if err == nil {
-		t.Fatalf("Request creation err expected but not happened")
+		t.Fatalf("Expected request creation error, but none occurred")
 	}
 }
 
-func TestFetchHTML_BodyReadError(t *testing.T) {
-	ctx := context.Background()
-	mockClient := &MockHttpClient{
-		RespBody: &BadReader{},
-	}
+type MockHTTPClient struct {
+    DoFunc func(req *http.Request) (*http.Response, error)
+}
 
-	_, err := FetchHTML(ctx, mockClient, "https://www.youtube.com")
+func (m *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
+    return m.DoFunc(req)
+}
 
-	if err == nil {
-		t.Fatalf("Response body read err expected but not happened")
-	}
+type BrokenReader struct{}
+
+func (b *BrokenReader) Read(p []byte) (n int, err error) {
+	return 0, fmt.Errorf("simulated read error")
+}
+
+func containsErrorMessage(err error, substr string) bool {
+	return err != nil && contains(err.Error(), substr)
+}
+
+func contains(str, substr string) bool {
+	return len(str) >= len(substr) && str[:len(substr)] == substr
+}
+
+func TestFetchHTML_ResponseBodyReadError(t *testing.T) {
+    handler := func(w http.ResponseWriter, r *http.Request) {
+        w.WriteHeader(http.StatusOK)
+    }
+    
+    ts := httptest.NewServer(http.HandlerFunc(handler))
+    defer ts.Close()
+    
+    mockClient := &MockHTTPClient{
+        DoFunc: func(req *http.Request) (*http.Response, error) {
+            return &http.Response{
+                StatusCode: http.StatusOK,
+                Body:       io.NopCloser(&BrokenReader{}),
+            }, nil
+        },
+    }
+    
+    _, err := FetchHTML(context.Background(), mockClient, ts.URL)
+    
+    if err == nil {
+        t.Fatalf("Expected response body read error, but none occurred")
+    }
+    if !containsErrorMessage(err, "response body read err") {
+        t.Errorf("Expected 'response body read err', but got: %v", err)
+    }
 }
