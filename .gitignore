@@ -1,0 +1,9 @@
+bin/
+*.exe
+*.out
+*.test
+*.log
+*.cache
+
+go.mod
+go.sum
