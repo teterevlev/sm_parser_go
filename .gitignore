@@ -4,5 +4,3 @@ bin/
 *.test
 *.log
 *.cache
-
-go.sum
