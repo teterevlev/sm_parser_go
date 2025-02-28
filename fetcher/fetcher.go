@@ -22,14 +22,11 @@ func FetchHTML(ctx context.Context, client HttpClient, url string, config ...Fet
 		return "", fmt.Errorf("request creation err: %w", err)
 	}
 
-	// Если конфигурация передана, добавляем заголовки и куки
 	if len(config) > 0 {
-		// Добавляем заголовки
 		for key, value := range config[0].Headers {
 			req.Header.Add(key, value)
 		}
 
-		// Добавляем куки
 		for key, value := range config[0].Cookies {
 			req.AddCookie(&http.Cookie{Name: key, Value: value})
 		}
