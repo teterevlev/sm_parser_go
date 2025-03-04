@@ -1,0 +1,14 @@
+{
+  "cookies_yt": {
+    "session_id": "12345abcde",
+    "user_preferences": "dark_mode=true"
+  },
+  "headers_yt": {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+    "Accept-Language": "en-US;"
+  },
+  "some_other_data": {
+    "key1": "value1",
+    "key2": "value2"
+  }
+}
