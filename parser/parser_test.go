@@ -2,8 +2,9 @@ package parser
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // Тест на корректное извлечение содержимого <script>
@@ -98,98 +99,6 @@ func TestGetScripts_ExtractStyleTag(t *testing.T) {
 
 
 
-func TestFindStartingWithNormalCase(t *testing.T) {
-	scripts := []string{"hello world", "hello go", "hi there", "hello universe"}
-	toBeFound := "hello"
-	expected := []int{0, 1, 3}
-	
-	result := FindStartingWith(scripts, toBeFound)
-	
-	if len(result) != len(expected) {
-		t.Fatalf("Разная длина: ожидалось %d, получено %d", len(expected), len(result))
-	}
-	
-	for i := range expected {
-		if result[i] != expected[i] {
-			t.Fatalf("Несовпадение на индексе %d: ожидалось %d, получено %d", i, expected[i], result[i])
-		}
-	}
-}
-
-func TestFindStartingWithEmptyScriptsList(t *testing.T) {
-	scripts := []string{}
-	toBeFound := "test"
-	expected := []int{}
-	
-	result := FindStartingWith(scripts, toBeFound)
-	
-	if len(result) != len(expected) {
-		t.Fatalf("Для пустого списка некорректная длина: ожидалось %d, получено %d", len(expected), len(result))
-	}
-}
-
-func TestFindStartingWithNonExistentPrefix(t *testing.T) {
-	scripts := []string{"apple", "banana", "cherry"}
-	toBeFound := "grape"
-	expected := []int{}
-	
-	result := FindStartingWith(scripts, toBeFound)
-	
-	if len(result) != len(expected) {
-		t.Fatalf("Для несуществующего префикса некорректная длина: ожидалось %d, получено %d", len(expected), len(result))
-	}
-}
-
-func TestFindStartingWithCaseSensitivity(t *testing.T) {
-	scripts := []string{"Hello", "hello", "HELLO"}
-	toBeFound := "hello"
-	expected := []int{1}
-	
-	result := FindStartingWith(scripts, toBeFound)
-	
-	if len(result) != len(expected) {
-		t.Fatalf("Разная длина: ожидалось %d, получено %d", len(expected), len(result))
-	}
-	
-	for i := range expected {
-		if result[i] != expected[i] {
-			t.Fatalf("Несовпадение на индексе %d: ожидалось %d, получено %d", i, expected[i], result[i])
-		}
-	}
-}
-
-func TestFindStartingWithEmptyPrefix(t *testing.T) {
-	scripts := []string{"test", "example", "sample"}
-	toBeFound := ""
-	expected := []int{0, 1, 2}
-	
-	result := FindStartingWith(scripts, toBeFound)
-	
-	if len(result) != len(expected) {
-		t.Fatalf("Разная длина: ожидалось %d, получено %d", len(expected), len(result))
-	}
-	
-	for i := range expected {
-		if result[i] != expected[i] {
-			t.Fatalf("Несовпадение на индексе %d: ожидалось %d, получено %d", i, expected[i], result[i])
-		}
-	}
-}
-
-func BenchmarkFindStartingWith(b *testing.B) {
-	scripts := make([]string, 10000)
-	for i := 0; i < 10000; i++ {
-		scripts[i] = "script_" + strings.Repeat("x", i%100)
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		FindStartingWith(scripts, "script_")
-	}
-}
-
-
-
 
 
 func TestFindJSONValidSimple(t *testing.T) {
@@ -260,5 +169,100 @@ func BenchmarkFindJSON(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		FindJSON(script, pattern)
+	}
+}
+
+
+
+
+
+// Тестовые HTML-контенты с различными сценариями
+const (
+	htmlWithValidScript = `
+		<html>
+			<head>
+				<script>
+					var someOtherScript = "data";
+					var ytInitialData = {"videoDetails": {"viewCount": "1000", "title": "Test Video"}};
+				</script>
+			</head>
+		</html>
+	`
+
+	htmlWithoutYTScript = `
+		<html>
+			<head>
+				<script>
+					var someOtherScript = "data";
+				</script>
+			</head>
+		</html>
+	`
+
+	htmlWithMultipleScripts = `
+		<html>
+			<head>
+				<script>
+					var firstScript = "data";
+				</script>
+				<script>
+					var ytInitialData = {"videoDetails": {"viewCount": "2000", "title": "Another Test Video"}};
+				</script>
+				<script>
+					var anotherScript = "more data";
+				</script>
+			</head>
+		</html>
+	`
+)
+
+func TestGetYTVideoStatsWithValidScript(t *testing.T) {
+	result, err := GetYTVideoStats(htmlWithValidScript)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+
+	var data map[string]interface{}
+	err = json.Unmarshal(*result, &data)
+	assert.NoError(t, err)
+
+	videoDetails, ok := data["videoDetails"].(map[string]interface{})
+	assert.True(t, ok, "videoDetails should be a map")
+
+	viewCount, ok := videoDetails["viewCount"].(string)
+	assert.True(t, ok, "viewCount should be a string")
+	assert.Equal(t, "1000", viewCount)
+}
+
+func TestGetYTVideoStatsWithoutYTScript(t *testing.T) {
+	result, err := GetYTVideoStats(htmlWithoutYTScript)
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Equal(t, "Not found stats script", err.Error())
+}
+
+func TestGetYTVideoStatsWithMultipleScripts(t *testing.T) {
+	result, err := GetYTVideoStats(htmlWithMultipleScripts)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+
+	var data map[string]interface{}
+	err = json.Unmarshal(*result, &data)
+	assert.NoError(t, err)
+
+	videoDetails, ok := data["videoDetails"].(map[string]interface{})
+	assert.True(t, ok, "videoDetails should be a map")
+
+	viewCount, ok := videoDetails["viewCount"].(string)
+	assert.True(t, ok, "viewCount should be a string")
+	assert.Equal(t, "2000", viewCount)
+}
+
+
+func BenchmarkGetYTVideoStats(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		GetYTVideoStats(htmlWithValidScript)
 	}
 }

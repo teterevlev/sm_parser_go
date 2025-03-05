@@ -31,16 +31,6 @@ func GetScripts(htmlContent string, tagName string) []string {
 }
 
 
-func FindStartingWith(scripts []string, toBeFound string) []int {
-
-	var result []int
-	for i, scriptText := range scripts {
-		if strings.HasPrefix(scriptText, toBeFound) {
-			result = append(result, i)
-		}
-	}
-	return result
-}
 
 func FindJSON(scriptText, pattern string) (*json.RawMessage, error) {
 	// Экранируем специальные символы в паттерне
@@ -64,3 +54,23 @@ func FindJSON(scriptText, pattern string) (*json.RawMessage, error) {
 	
 	return &jsonData, nil
 }
+
+
+func GetYTVideoStats(htmlContent string)(*json.RawMessage, error) {
+    scripts := GetScripts(htmlContent, "script")
+
+    for _, script := range scripts {
+    //for _, number := range foundIndices {
+        j, err := FindJSON(script, "var ytInitialData")
+        if err == nil {
+            return j, nil
+        }
+
+        // Дальнейшая обработка j
+    }
+    var j *json.RawMessage
+    return j, fmt.Errorf("Not found stats script")
+}
+
+
+

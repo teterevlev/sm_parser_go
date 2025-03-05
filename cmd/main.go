@@ -1,7 +1,6 @@
 package main
 
 import (
-    "encoding/json"
 	"context"
 	"fmt"
 	"net/http"
@@ -42,29 +41,7 @@ func main() {
 
 	fmt.Println("HTML loaded. Size:", len(htmlContent))
 
-	// Извлекаем скрипты
-	scripts := parser.GetScripts(htmlContent, "script")
-    /*
-	for _, script := range scripts {
-		fmt.Println(len(script))
-	}
-    */
-
-	// Ищем скрипты, содержащие 'var ytInitialData ='
-	foundIndices := parser.FindStartingWith(scripts, "var ytInitialData =")
-	
-	// Выводим индексы найденных скриптов
-	fmt.Println("Found indices:", foundIndices)
-    
-    var j *json.RawMessage
-    for _, number := range foundIndices {
-        j, err = parser.FindJSON(scripts[number], "var ytInitialData")
-        if err != nil {
-            continue
-        }
-
-        // Дальнейшая обработка j
-    }
+	j, err := parser.GetYTVideoStats(htmlContent)
     fmt.Println(string(*j))
 }
 
