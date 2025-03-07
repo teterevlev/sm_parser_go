@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"time"
     
-    
-
 	"sm_parser_go/loadjson"
 	"sm_parser_go/fetcher"
 	"sm_parser_go/parser"
@@ -30,8 +28,10 @@ func main() {
 		// Продолжаем без конфигурации
 		htmlContent, err = fetcher.FetchHTML(ctx, client, url)
 	} else {
-		// Используем конфигурацию при запросе
-		htmlContent, err = fetcher.FetchHTML(ctx, client, url, *fetchConfig)
+		// Используем конфигурацию при запросе с помощью опций
+		htmlContent, err = fetcher.FetchHTML(ctx, client, url, 
+			fetcher.WithHeaders(fetchConfig.Headers), 
+			fetcher.WithCookies(fetchConfig.Cookies))
 	}
 
 	if err != nil {
@@ -40,6 +40,7 @@ func main() {
 	}
 
 	fmt.Println("HTML loaded. Size:", len(htmlContent))
+
 
 	j, err := parser.GetYTVideoStats(htmlContent)
     fmt.Println(string(*j))

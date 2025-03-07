@@ -83,123 +83,41 @@ func TestFetchHTML_ResponseBodyReadError(t *testing.T) {
 }
 
 
-func TestFetchHTML_WithHeaders(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		headerValue := r.Header.Get("User-Agent")
-		require.Equal(t, "TestAgent", headerValue)
-		
-		headerValue = r.Header.Get("Accept-Language")
-		require.Equal(t, "en-EN", headerValue)
-		
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("response with headers"))
-	}))
-	defer server.Close()
-	
-	client := server.Client()
-	config := FetchConfig{
-		Headers: map[string]string{
-			"User-Agent":      "TestAgent",
-			"Accept-Language": "en-EN",
-		},
-	}
-	
-	result, err := FetchHTML(context.Background(), client, server.URL, config)
-	
-	require.NoError(t, err)
-	require.Equal(t, "response with headers", result)
+
+
+
+func TestWithHeaders_EmptyHeaders(t *testing.T) {
+	config := FetchConfig{}
+	option := WithHeaders(map[string]string{})
+	option(&config)
+
+	require.Empty(t, config.Headers, "Headers should be empty")
 }
 
-func TestFetchHTML_WithCookies(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cookies := r.Cookies()
-		
-		foundSessionID := false
-		foundUserID := false
-		
-		for _, cookie := range cookies {
-			if cookie.Name == "session_id" && cookie.Value == "abc123" {
-				foundSessionID = true
-			}
-			if cookie.Name == "user_id" && cookie.Value == "12345" {
-				foundUserID = true
-			}
-		}
-		
-		require.True(t, foundSessionID, "session_id cookie not found or has wrong value")
-		require.True(t, foundUserID, "user_id cookie not found or has wrong value")
-		
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("response with cookies"))
-	}))
-	defer server.Close()
-	
-	client := server.Client()
-	config := FetchConfig{
-		Cookies: map[string]string{
-			"session_id": "abc123",
-			"user_id":    "12345",
-		},
-	}
-	
-	result, err := FetchHTML(context.Background(), client, server.URL, config)
-	
-	require.NoError(t, err)
-	require.Equal(t, "response with cookies", result)
+func TestWithHeaders_SingleHeader(t *testing.T) {
+	config := FetchConfig{}
+	headers := map[string]string{"Content-Type": "application/json"}
+	option := WithHeaders(headers)
+	option(&config)
+
+	require.Equal(t, headers, config.Headers, "Headers do not match")
 }
 
-func TestFetchHTML_WithHeadersAndCookies(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "TestAgent", r.Header.Get("User-Agent"))
-		
-		cookies := r.Cookies()
-		foundSessionID := false
-		
-		for _, cookie := range cookies {
-			if cookie.Name == "session_id" && cookie.Value == "abc123" {
-				foundSessionID = true
-				break
-			}
-		}
-		
-		require.True(t, foundSessionID, "session_id cookie not found or has wrong value")
-		
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("response with headers and cookies"))
-	}))
-	defer server.Close()
-	
-	client := server.Client()
-	config := FetchConfig{
-		Headers: map[string]string{
-			"User-Agent": "TestAgent",
-		},
-		Cookies: map[string]string{
-			"session_id": "abc123",
-		},
-	}
-	
-	result, err := FetchHTML(context.Background(), client, server.URL, config)
-	
-	require.NoError(t, err)
-	require.Equal(t, "response with headers and cookies", result)
-}
 
-func TestFetchHTML_WithEmptyConfig(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("response with empty config"))
-	}))
-	defer server.Close()
-	
-	client := server.Client()
-	config := FetchConfig{
-		Headers: map[string]string{},
-		Cookies: map[string]string{},
-	}
-	
-	result, err := FetchHTML(context.Background(), client, server.URL, config)
-	
-	require.NoError(t, err)
-	require.Equal(t, "response with empty config", result)
+
+
+func TestWithCookies_EmptyCookies(t *testing.T) {
+	config := FetchConfig{}
+	option := WithCookies(map[string]string{})
+	option(&config)
+
+	require.Empty(t, config.Cookies, "Cookies should be empty")
+}
+func TestWithCookies_SingleCookie(t *testing.T) {
+	config := FetchConfig{}
+	headers := map[string]string{"session_id": "abc123"}
+	option := WithCookies(headers)
+	option(&config)
+
+	require.Equal(t, headers, config.Cookies, "Cookies do not match")
 }

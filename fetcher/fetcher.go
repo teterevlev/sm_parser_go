@@ -16,20 +16,39 @@ type FetchConfig struct {
 	Cookies map[string]string
 }
 
-func FetchHTML(ctx context.Context, client HttpClient, url string, config ...FetchConfig) (string, error) {
+type Option func(*FetchConfig)
+
+func WithHeaders(headers map[string]string) Option {
+	return func(c *FetchConfig) {
+		c.Headers = headers
+	}
+}
+
+func WithCookies(cookies map[string]string) Option {
+	return func(c *FetchConfig) {
+		c.Cookies = cookies
+	}
+}
+
+func FetchHTML(ctx context.Context, client HttpClient, url string, options ...Option) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return "", fmt.Errorf("request creation err: %w", err)
 	}
 
-	if len(config) > 0 {
-		for key, value := range config[0].Headers {
-			req.Header.Add(key, value)
-		}
+	// Создаем конфигурацию и применяем опции
+	config := FetchConfig{}
+	for _, opt := range options {
+		opt(&config)
+	}
 
-		for key, value := range config[0].Cookies {
-			req.AddCookie(&http.Cookie{Name: key, Value: value})
-		}
+	// Применяем настройки конфигурации
+	for key, value := range config.Headers {
+		req.Header.Add(key, value)
+	}
+
+	for key, value := range config.Cookies {
+		req.AddCookie(&http.Cookie{Name: key, Value: value})
 	}
 
 	resp, err := client.Do(req)
